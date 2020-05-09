@@ -12,8 +12,8 @@ public class Client {
 	private InetAddress host;
 	private int portNumber;
 	private String username;
-	private BufferedReader in;
-	private PrintWriter out;
+	private BufferedReader inFromServer;
+	private PrintWriter outToServer;
 	private UI window;
 	
 	public Client(InetAddress hostname, int port)
@@ -28,7 +28,7 @@ public class Client {
 			@Override
 			public void actionPerformed(ActionEvent a) {
 				String message = window.getTextField().getText();	//
-				writeMessage(message);
+				outToServer.println(message);
 				window.getTextField().setText("");	//reset text box
 			}
 		});
@@ -39,64 +39,53 @@ public class Client {
 		InetAddress hostname = InetAddress.getLocalHost();
 		int port = 5000;
 		Client client = new Client(hostname, port);
-		client.beginLoop();
+		client.start();
 	}
 	
-	public void beginLoop()
+	public void start()
 	{
 		try
 		{
-			Socket connection = new Socket(host, portNumber);
-			System.out.println("Client: Connected to server");
-			in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-			out = new PrintWriter(connection.getOutputStream(), true);
+			Socket clientSocket = new Socket(host, portNumber);
+			System.out.println("Connected to server");
+			inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+			outToServer = new PrintWriter(clientSocket.getOutputStream(), true);
 			
-			String message = in.readLine();
-			while (!message.equals("LOGOUT"))
+			String promptFromServer = inFromServer.readLine();
+			while (!promptFromServer.equals("LOGOUT"))
 			{
-				if (message.startsWith("ASKFORNAME"))
+				String snippedMessage = promptFromServer.substring(15);	//removes header
+				if (promptFromServer.startsWith("ASKFORNAME"))
 				{
-					boolean first = (message.charAt(10) == '0');
-					String name = window.usernameSelection(first);
-					out.println(name);
+					boolean isValidUsername = (promptFromServer.charAt(10) == '0');
+					String username = window.usernameSelection(isValidUsername);
+					outToServer.println(username);
 				}
-				else if (message.startsWith("WELCOMEMESSAGE"))
+				else if (promptFromServer.startsWith("WELCOMEMESSAGE"))
 				{
-					username = message.substring(15);
-					window.show();
-					window.printMessageToScreen("Welcome " + username);
+					username = snippedMessage;
+					window.show();	//NTC FOR JAVAFX
+					window.printMessageToScreen("Welcome " + username); //NTC FOR JAVAFX
 				}
-				else if (message.startsWith("OUTSIDEMESSAGE"))
+				else if (promptFromServer.startsWith("OUTSIDEMESSAGE"))
 				{
-					displayMessage(message.substring(15));
+					System.out.println(snippedMessage);
+					window.printMessageToScreen(snippedMessage);	//NTC FOR JAVAFX
 				}
 				else
 				{
-					writeMessage(message);
+					outToServer.println(promptFromServer);
 				}
-				message = in.readLine();
+				promptFromServer = inFromServer.readLine();
 			}
-			connection.close();
-			window.exit();
+			clientSocket.close();
+			window.exit(); //NTC FOR JAVAFX (just delete)
 		}
-		catch (UnknownHostException e)
+		catch (Exception e)
 		{
-			System.out.println("Client: Unknown Host Exception: " + e.getMessage());
-		}
-		catch (IOException e)
-		{
-			System.out.println("Client: I/O Exception: " + e.getMessage());
+			System.out.println("Client Error:");
+			e.printStackTrace();
 		}
 	}
-	
-	public void displayMessage(String message)
-	{
-		System.out.println(message);
-		window.printMessageToScreen(message);
-	}
-	
-	public void writeMessage(String message)
-	{
-		out.println(message);
-	}
+
 }
