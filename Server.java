@@ -6,38 +6,14 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.HashSet;
 import java.util.Set;
-/*
- * File: ChatServer.java
- * Author: Diana Choi, Sara Joshi
- * Class: CS 3800-02 Computer Networks
- * Professor: J. Korah
- * Assignment: Final
- * 
- * 
- * Purpose: This class is a server that listens for
- *          connections from chat users. It keeps track
- *          of all the users currently connected using a
- *          Set of usernames and a Set of their output streams.
- */
+
 public class Server {
 
-	private int portNumber;
-	private Set<String> usernames = new HashSet<>();
-	private Set<PrintWriter> clientOutputs = new HashSet<>();
+	private int portNumber = 5000;
+	private Set<String> usernameList = new HashSet<>();
+	private Set<PrintWriter> chatList = new HashSet<>();
 	
-	public Server(int port)
-	{
-		portNumber = port;
-	}
-	
-	public static void main(String[] args) throws IOException
-	{
-		int port = 5000;
-		Server server = new Server(port);
-		server.beginLoop();
-	}
-	
-	public void beginLoop()
+	public void start()
 	{
 		try (ServerSocket server = new ServerSocket(portNumber))
 		{
@@ -61,10 +37,16 @@ public class Server {
 	
 	public void writeMessage(String message)
 	{
-		for (PrintWriter out : clientOutputs)
+		for (PrintWriter out : chatList)
 		{
 			out.println("OUTSIDEMESSAGE " + message);
 		}
+	}
+	
+	public static void main(String[] args) throws IOException
+	{
+		Server server = new Server();
+		server.start();
 	}
 	
 	private class UserThread extends Thread
@@ -79,15 +61,15 @@ public class Server {
 			this.socket = connection;
 		}
 		
-		public void run()
+		public synchronized void run() //synchronized ensures usernameList and chatList is up-to-date on all threads
 		{
 			try
 			{
 				in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 				out = new PrintWriter(socket.getOutputStream(), true);
 				registerNewUser();
-				writeMessage(username + " has joined the chatroom!");
-				clientOutputs.add(out);
+				writeMessage(username + " signed in to chat.");
+				chatList.add(out);
 				
 				String message = in.readLine();
 				while (!message.equals("."))
@@ -95,7 +77,15 @@ public class Server {
 					writeMessage(username + ": " + message);
 					message = in.readLine();
 				}
-				removeMe();
+				out.println("LOGOUT");
+				usernameList.remove(username);
+				chatList.remove(out);
+				writeMessage(username + " logged out.");
+				try
+				{
+					socket.close();
+				}
+				catch (IOException e) {}
 			}
 			catch (IOException e)
 			{
@@ -107,26 +97,13 @@ public class Server {
 		{
 			out.println("ASKFORNAME0");
 			username = in.readLine();
-			while (username != null && usernames.contains(username))
+			while (username != null && usernameList.contains(username))
 			{
 				out.println("ASKFORNAME1");
 				username = in.readLine();
 			}
-			usernames.add(username);
+			usernameList.add(username);
 			out.println("WELCOMEMESSAGE " + username);
-		}
-		
-		public void removeMe()
-		{
-			out.println("LOGOUT");
-			usernames.remove(username);
-			clientOutputs.remove(out);
-			writeMessage(username + " has left the chatroom");
-			try
-			{
-				socket.close();
-			}
-			catch (IOException e) {}
 		}
 	}
 }

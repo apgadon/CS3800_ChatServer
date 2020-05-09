@@ -54,7 +54,10 @@ public class Client {
 			String promptFromServer = inFromServer.readLine();
 			while (!promptFromServer.equals("LOGOUT"))
 			{
-				String snippedMessage = promptFromServer.substring(15);	//removes header
+				String snippedMessage = "";
+				if(promptFromServer.length()>15) {
+					snippedMessage = promptFromServer.substring(15);	//removes header
+				}
 				if (promptFromServer.startsWith("ASKFORNAME"))
 				{
 					boolean isValidUsername = (promptFromServer.charAt(10) == '0');
@@ -69,7 +72,6 @@ public class Client {
 				}
 				else if (promptFromServer.startsWith("OUTSIDEMESSAGE"))
 				{
-					System.out.println(snippedMessage);
 					window.printMessageToScreen(snippedMessage);	//NTC FOR JAVAFX
 				}
 				else
